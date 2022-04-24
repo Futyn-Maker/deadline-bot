@@ -7,7 +7,7 @@ def main():
     @bot.on.private_message(text="добавить <deadline> на <time>")
     async def setDeadline(message: Message, deadline: str, time: str):
         row = {"chat": message.peer_id, "deadline": deadline, "time": time}
-        if message.from_id == message.peer_id: # Трюк, чтобы проверить, пришло сообщение из беседы или из личного чата
+        if message.from_id == message.peer_id:
             row["isGroup"] = False
         else:
             row["isGroup"] = True
@@ -26,6 +26,17 @@ def main():
             database.commit()
             # Мы не используем `DELETE FROM Deadlines WHERE` сразу, так как у пользователя может быть несколько дедлайнов с одинаковым названием.
             await message.answer(f"Дедлайн <<{deadline[1]}>> удалён")
+
+    @bot.on.message(text="/изменить <deadline> на <time>")
+    @bot.on.private_message(text="изменить <deadline> на <time>")
+    async def changeDeadline(message: Message, deadline: str, time: str):
+        deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
+        if deadline == None:
+            await message.answer("У вас нет такого дедлайна")
+        else:
+            cur.execute("UPDATE Deadlines SET time=? WHERE ROWID=?;", (time, deadline[0]))
+            database.commit()
+            await message.answer(f"Дедлайн <<{deadline[1]}>> изменён на {time}")
 
     @bot.on.message(text="/сбросить")
     @bot.on.private_message(text="сбросить")
@@ -60,11 +71,11 @@ def ignore_case_collation(value1_, value2_): # Добавляет поддерж
         return 1
 
 bot = Bot(token)
-bot.labeler.vbml_ignore_case = True # Делает обработчики сообщений в боте регистронезависимыми
+bot.labeler.vbml_ignore_case = True
 bot.labeler.load(BotLabeler())
 
 database = sqlite3.connect("deadlines.db")
-database.create_collation("NOCASE", ignore_case_collation) # Правило для регистронезависимого сравнения в SQLite
+database.create_collation("NOCASE", ignore_case_collation)
 cur = database.cursor()
 cur.execute("""CREATE TABLE IF NOT EXISTS Deadlines(
     chat INT,
