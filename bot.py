@@ -7,7 +7,7 @@ def main():
     @bot.on.private_message(text="добавить <deadline> на <time>")
     async def setDeadline(message: Message, deadline: str, time: str):
         row = {"chat": message.peer_id, "deadline": deadline, "time": time}
-        if message.from_id == message.peer_id:
+        if message.from_id == message.peer_id: # Трюк, чтобы проверить, пришло сообщение из беседы или из личного чата
             row["isGroup"] = False
         else:
             row["isGroup"] = True
@@ -60,11 +60,11 @@ def ignore_case_collation(value1_, value2_): # Добавляет поддерж
         return 1
 
 bot = Bot(token)
-bot.labeler.vbml_ignore_case = True
+bot.labeler.vbml_ignore_case = True # Делает обработчики сообщений в боте регистронезависимыми
 bot.labeler.load(BotLabeler())
 
 database = sqlite3.connect("deadlines.db")
-database.create_collation("NOCASE", ignore_case_collation)
+database.create_collation("NOCASE", ignore_case_collation) # Правило для регистронезависимого сравнения в SQLite
 cur = database.cursor()
 cur.execute("""CREATE TABLE IF NOT EXISTS Deadlines(
     chat INT,
