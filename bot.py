@@ -20,7 +20,11 @@ def main():
     async def removeDeadline(message: Message, deadline: str):
         deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
         if deadline == None:
-            await message.answer("У вас нет такого дедлайна")
+            if message.peer_id == message.from_id:
+                answer = "У тебя нет такого дедлайна"
+            else:
+                answer = "У вас нет такого дедлайна"
+            await message.answer(answer)
         else:
             cur.execute("DELETE FROM Deadlines WHERE ROWID=?;", (deadline[0],))
             database.commit()
@@ -32,7 +36,11 @@ def main():
     async def changeDeadline(message: Message, deadline: str, time: str):
         deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
         if deadline == None:
-            await message.answer("У вас нет такого дедлайна")
+            if message.peer_id == message.from_id:
+                answer = "У тебя нет такого дедлайна"
+            else:
+                answer = "У вас нет такого дедлайна"
+            await message.answer(answer)
         else:
             cur.execute("UPDATE Deadlines SET time=? WHERE ROWID=?;", (time, deadline[0]))
             database.commit()
@@ -50,15 +58,19 @@ def main():
     async def sendDeadlines(message: Message):
         deadlines = cur.execute("SELECT deadline, time FROM Deadlines WHERE chat=?;", (message.peer_id,)).fetchall()
         if len(deadlines) == 0:
-            await message.answer("У вас нет текущих дедлайнов")
+            if message.peer_id == message.from_id:
+                answer = "У тебя нет текущих дедлайнов"
+            else:
+                answer = "У вас нет текущих дедлайнов"
+            await message.answer(answer)
         else:
-            answerMessage = ""
+            answer = ""
             for deadline in deadlines:
-                answerMessage += f"""Дедлайн: {deadline[0]}
+                answer += f"""Дедлайн: {deadline[0]}
 Когда: {deadline[1]}
 
 """
-            await message.answer(answerMessage)
+            await message.answer(answer)
 
     bot.run_forever()
 
