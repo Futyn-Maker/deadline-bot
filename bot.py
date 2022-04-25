@@ -20,11 +20,8 @@ def main():
     async def removeDeadline(message: Message, deadline: str):
         deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
         if deadline == None:
-            if message.peer_id == message.from_id:
-                answer = "У тебя нет такого дедлайна"
-            else:
-                answer = "У вас нет такого дедлайна"
-            await message.answer(answer)
+            pronoun = "тебя" if message.from_id == message.peer_id else "вас" # Делаем разные местоимения в зависимости от типа чата
+            await message.answer(f"у {pronoun} нет такого дедлайна")
         else:
             cur.execute("DELETE FROM Deadlines WHERE ROWID=?;", (deadline[0],))
             database.commit()
@@ -36,11 +33,8 @@ def main():
     async def changeDeadline(message: Message, deadline: str, time: str):
         deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
         if deadline == None:
-            if message.peer_id == message.from_id:
-                answer = "У тебя нет такого дедлайна"
-            else:
-                answer = "У вас нет такого дедлайна"
-            await message.answer(answer)
+            pronoun = "тебя" if message.from_id == message.peer_id else "вас"
+            await message.answer(f"у {pronoun} нет такого дедлайна")
         else:
             cur.execute("UPDATE Deadlines SET time=? WHERE ROWID=?;", (time, deadline[0]))
             database.commit()
@@ -58,11 +52,8 @@ def main():
     async def sendDeadlines(message: Message):
         deadlines = cur.execute("SELECT deadline, time FROM Deadlines WHERE chat=?;", (message.peer_id,)).fetchall()
         if len(deadlines) == 0:
-            if message.peer_id == message.from_id:
-                answer = "У тебя нет текущих дедлайнов"
-            else:
-                answer = "У вас нет текущих дедлайнов"
-            await message.answer(answer)
+            pronoun = "тебя" if message.from_id == message.peer_id else "вас"
+            await message.answer(f"у {pronoun} нет текущих дедлайнов")
         else:
             answer = ""
             for deadline in deadlines:
