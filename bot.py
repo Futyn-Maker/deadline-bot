@@ -1,6 +1,8 @@
 from vkbottle.bot import Bot, BotLabeler, Message
 from config import token
 import sqlite3
+import re
+from datetime import datetime, timedelta
 
 def main():
     """Основная функция бота. В ней скрипт ждёт от пользователя или беседы сообщения и обрабатывает их."""
@@ -9,6 +11,10 @@ def main():
     async def setDeadline(message: Message, deadline: str, time: str):
         """Добавляет дедлайн для чата.
 Кроме собственно сообщения принимает параметры `deadline` (str) - название дедлайна, а также `time` (str) - дату и время."""
+        time = unifyTime(time)
+        if time == None:
+            await message.answer("Ошибка: неправильный формат даты и времени")
+            return
         row = {"chat": message.peer_id, "deadline": deadline, "time": time}
         if message.from_id == message.peer_id:
             row["isGroup"] = False
@@ -40,6 +46,10 @@ def main():
         """Изменяет уже существующий дедлайн.
 Кроме собственно сообщения принимает параметры `deadline` (str) - название изменяемого дедлайна, а также `time` (str) - новое время дедлайна.
 Если для чата задано несколько дедлайнов с одинаковым названием, будет изменён тот, который добавлен раньше."""
+        time = unifyTime(time)
+        if time == None:
+            await message.answer("Ошибка: неправильный формат даты и времени")
+            return
         deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
         if deadline == None:
             pronoun = "тебя" if message.from_id == message.peer_id else "вас"
@@ -75,6 +85,36 @@ def main():
             await message.answer(answer)
 
     bot.run_forever()
+
+def unifyTime(time):
+    """Приводит введённое пользователем время к формату 'dd.mm.yyyy HH:MM'. Возвращает строку."""
+    time = time.strip()    
+    time = time.lower()
+    if re.fullmatch(r"\d\d:\d\d", time): # Проверяем, не ввёл ли пользователь время без даты
+        time = datetime.strftime(datetime.today(), "%d.%m.%Y") + f" {time}"
+    if re.match(r"завтра", time):
+        time = time.replace("завтра", datetime.strftime(datetime.today() + timedelta(days=1), "%d.%m.%Y"))
+    if not re.match(r"\d\d", time): # День месяца должен всегда занимать две цифры
+        time = "0" + time
+    if not re.match(r"\d\d\.\d\d", time): # Проверяем, не введена ли дата в нужном нам формате
+        months = {
+            "января": ".01", "февраля": ".02", "марта": ".03", "апреля": ".04",
+            "мая": ".05", "июня": ".06", "июля": ".07", "августа": ".08",
+            "сентября": ".09", "октября": ".10", "ноября": ".11", "декабря": ".12"
+        }
+        for word, num in months.items():
+            time = re.sub(fr"\s?{word}", num, time)
+    if not re.search(r"\d\d:\d\d", time): # Проверяем, ввёл ли пользователь время
+        time += " 00:00"
+    if not re.search(r"\d{4}", time): # Проверяем, указал ли пользователь год
+        time = time.split()
+        time[0] += f".{str(datetime.today().year)}"
+        time = " ".join(time)
+    try:
+        datetime.strptime(time, "%d.%m.%Y %H:%M") # Проверяем формат на валидность
+        return time
+    except ValueError:
+        return None
 
 def ignore_case_collation(value1_, value2_):
     """Добавляет поддержку регистронезависимого сравнения кириллицы в SQLite."""
