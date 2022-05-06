@@ -95,7 +95,7 @@ def unifyTime(time):
     if re.match(r"завтра", time):
         time = time.replace("завтра", datetime.strftime(datetime.today() + timedelta(days=1), "%d.%m.%Y"))
     if not re.match(r"\d\d", time): # День месяца должен всегда занимать две цифры
-        time = "0" + time
+        time = f"0{time}"
     if not re.match(r"\d\d\.\d\d", time): # Проверяем, не введена ли дата в нужном нам формате
         months = {
             "января": ".01", "февраля": ".02", "марта": ".03", "апреля": ".04",
@@ -103,7 +103,8 @@ def unifyTime(time):
             "сентября": ".09", "октября": ".10", "ноября": ".11", "декабря": ".12"
         }
         for word, num in months.items():
-            time = re.sub(fr"\s?{word}", num, time)
+            if word in time:
+                time = re.sub(fr"\s?{word}", num, time)
     if not re.search(r"\d\d:\d\d", time): # Проверяем, ввёл ли пользователь время
         time += " 00:00"
     if not re.search(r"\d{4}", time): # Проверяем, указал ли пользователь год
