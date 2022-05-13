@@ -88,6 +88,7 @@ def main():
 
 def unifyTime(time: str):
     """Приводит введённое пользователем время к формату 'dd.mm.yyyy HH:MM'. Возвращает строку."""
+    validated = False
     time = time.strip()    
     time = time.lower()
     if re.fullmatch(r"\d\d:\d\d", time): # Проверяем, не ввёл ли пользователь время без даты
@@ -108,14 +109,26 @@ def unifyTime(time: str):
     if not re.search(r"\d\d:\d\d", time): # Проверяем, ввёл ли пользователь время
         time += " 00:00"
     if not re.search(r"\d{4}", time): # Проверяем, указал ли пользователь год
-        time = time.split()
-        time[0] += f".{str(datetime.today().year)}"
-        time = " ".join(time)
-    try:
-        datetime.strptime(time, "%d.%m.%Y %H:%M") # Проверяем формат на валидность
+        try:
+            timeObject = datetime.strptime(time, "%d.%m %H:%M") # Предполагается, что к этому моменту формат даты правильный, исключая отсутствие года
+            validated = True # Если преобразование выше сработало, формат точно станет валидным после добавления года
+        except ValueError:
+            return None
+        timeObject = datetime(datetime.today().year, timeObject.month, timeObject.day, timeObject.hour, timeObject.minute) # Костыль для изменения года у объекта datetime
+        timeList = time.split()
+        if datetime.today() < timeObject:
+            timeList[0] += f".{str(datetime.today().year)}"
+        else:
+            timeList[0] += f".{str(datetime.today().year + 1)}" # Если в этом году введённое время уже прошло, устанавливаем дедлайн на то же время в следующем году
+        time = " ".join(timeList)
+    if validated:
         return time
-    except ValueError:
-        return None
+    else:
+        try:
+            datetime.strptime(time, "%d.%m.%Y %H:%M") # Проверяем формат на валидность
+            return time
+        except ValueError:
+            return None
 
 def ignore_case_collation(value1_: str, value2_: str):
     """Добавляет поддержку регистронезависимого сравнения кириллицы в SQLite."""
