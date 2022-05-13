@@ -16,7 +16,7 @@ def main():
             await message.answer("Ошибка: неправильный формат даты и времени")
             return
         row = {"chat": message.peer_id, "deadline": deadline, "time": time}
-        if message.from_id == message.peer_id:
+        if message.from_id == message.peer_id: # Трюк, чтобы проверить, пришло сообщение из группового или одиночного чата
             row["isGroup"] = False
         else:
             row["isGroup"] = True
@@ -62,7 +62,7 @@ def main():
     @bot.on.message(text="/сбросить")
     @bot.on.private_message(text="сбросить")
     async def clearDeadlines(message: Message):
-        """Удаляет все дедлайны для текущего чата."""
+        """Удаляет все дедлайны для данного чата."""
         cur.execute("DELETE FROM Deadlines WHERE chat=?;", (message.peer_id,))
         database.commit()
         await message.answer("Все дедлайны удалены")
@@ -86,7 +86,7 @@ def main():
 
     bot.run_forever()
 
-def unifyTime(time):
+def unifyTime(time: str):
     """Приводит введённое пользователем время к формату 'dd.mm.yyyy HH:MM'. Возвращает строку."""
     time = time.strip()    
     time = time.lower()
@@ -117,7 +117,7 @@ def unifyTime(time):
     except ValueError:
         return None
 
-def ignore_case_collation(value1_, value2_):
+def ignore_case_collation(value1_: str, value2_: str):
     """Добавляет поддержку регистронезависимого сравнения кириллицы в SQLite."""
     if value1_.lower() == value2_.lower():
         return 0
