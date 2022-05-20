@@ -3,6 +3,7 @@ from config import token
 import sqlite3
 import re
 from datetime import datetime, timedelta
+from dateparser import parse
 
 def main():
     """Основная функция бота. В ней скрипт ждёт от пользователя или беседы сообщения и обрабатывает их."""
@@ -33,7 +34,7 @@ def main():
         deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
         if deadline == None:
             pronoun = "тебя" if message.from_id == message.peer_id else "вас" # Делаем разные местоимения в зависимости от типа чата
-            await message.answer(f"у {pronoun} нет такого дедлайна")
+            await message.answer(f"У {pronoun} нет такого дедлайна")
         else:
             cur.execute("DELETE FROM Deadlines WHERE ROWID=?;", (deadline[0],))
             database.commit()
@@ -53,7 +54,7 @@ def main():
         deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
         if deadline == None:
             pronoun = "тебя" if message.from_id == message.peer_id else "вас"
-            await message.answer(f"у {pronoun} нет такого дедлайна")
+            await message.answer(f"У {pronoun} нет такого дедлайна")
         else:
             cur.execute("UPDATE Deadlines SET time=? WHERE ROWID=?;", (time, deadline[0]))
             database.commit()
@@ -74,7 +75,7 @@ def main():
         deadlines = cur.execute("SELECT deadline, time FROM Deadlines WHERE chat=?;", (message.peer_id,)).fetchall()
         if len(deadlines) == 0:
             pronoun = "тебя" if message.from_id == message.peer_id else "вас"
-            await message.answer(f"у {pronoun} нет текущих дедлайнов")
+            await message.answer(f"У {pronoun} нет текущих дедлайнов")
         else:
             answer = ""
             for deadline in deadlines:
@@ -87,48 +88,17 @@ def main():
     bot.run_forever()
 
 def unifyTime(time: str):
-    """Приводит введённое пользователем время к формату 'dd.mm.yyyy HH:MM'. Возвращает строку."""
-    validated = False
+    """Приводит введённое пользователем время к формату 'dd.mm.yyyy HH:MM'. Возвращает строку. Если дату распознать не удалось, возвращает `None`."""
     time = time.strip()    
     time = time.lower()
-    if re.fullmatch(r"\d\d:\d\d", time): # Проверяем, не ввёл ли пользователь время без даты
-        time = datetime.strftime(datetime.today(), "%d.%m.%Y") + f" {time}"
-    if re.match(r"завтра", time):
-        time = time.replace("завтра", datetime.strftime(datetime.today() + timedelta(days=1), "%d.%m.%Y"))
-    if not re.match(r"\d\d", time): # День месяца должен всегда занимать две цифры
-        time = f"0{time}"
-    if not re.match(r"\d\d\.\d\d", time): # Проверяем, не введена ли дата в нужном нам формате
-        months = {
-            "января": ".01", "февраля": ".02", "марта": ".03", "апреля": ".04",
-            "мая": ".05", "июня": ".06", "июля": ".07", "августа": ".08",
-            "сентября": ".09", "октября": ".10", "ноября": ".11", "декабря": ".12"
-        }
-        for word, num in months.items():
-            if word in time:
-                time = re.sub(fr"\s?{word}", num, time)
-    if not re.search(r"\d\d:\d\d", time): # Проверяем, ввёл ли пользователь время
-        time += " 00:00"
-    if not re.search(r"\d{4}", time): # Проверяем, указал ли пользователь год
-        try:
-            timeObject = datetime.strptime(time, "%d.%m %H:%M") # Предполагается, что к этому моменту формат даты правильный, исключая отсутствие года
-            validated = True # Если преобразование выше сработало, формат точно станет валидным после добавления года
-        except ValueError:
-            return None
-        timeObject = datetime(datetime.today().year, timeObject.month, timeObject.day, timeObject.hour, timeObject.minute) # Костыль для изменения года у объекта datetime
-        timeList = time.split()
-        if datetime.today() < timeObject:
-            timeList[0] += f".{str(datetime.today().year)}"
-        else:
-            timeList[0] += f".{str(datetime.today().year + 1)}" # Если в этом году введённое время уже прошло, устанавливаем дедлайн на то же время в следующем году
-        time = " ".join(timeList)
-    if validated:
-        return time
-    else:
-        try:
-            datetime.strptime(time, "%d.%m.%Y %H:%M") # Проверяем формат на валидность
-            return time
-        except ValueError:
-            return None
+    time = parse(time, languages=["ru"], settings={
+        "DATE_ORDER": "DMY", # Переопределяет порядок элементов даты для неочевидных дат
+        "PREFER_DATES_FROM": "future" # Будет ориентироваться на ближайшее будущее для незавершённых дат
+    })
+    if not time:
+        return None
+    time = time.strftime("%d.%m.%Y %H:%M")
+    return time
 
 def ignore_case_collation(value1_: str, value2_: str):
     """Добавляет поддержку регистронезависимого сравнения кириллицы в SQLite."""
