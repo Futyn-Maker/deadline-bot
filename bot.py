@@ -1,13 +1,11 @@
 from vkbottle.bot import Bot, BotLabeler, Message
 from vkbottle import VKAPIError
-from config import token
 import sqlite3
-import re
 from datetime import datetime, timedelta
 from dateparser import parse
 from random import randint
 import asyncio
-from multiprocessing import Process
+from config import token
 
 async def main():
     """Основная функция бота. В ней скрипт ждёт от пользователя или беседы сообщения и обрабатывает их."""
@@ -89,10 +87,10 @@ async def main():
 """
             await message.answer(answer)
 
-    await asyncio.gather(bot.run_polling(), scheduler())
+    await asyncio.gather(bot.run_polling(), scheduler()) # Запускаем одновременно и бота, и планировщик
 
 def unifyTime(time: str):
-    """Приводит введённое пользователем время к формату 'dd.mm.yyyy HH:MM'. Возвращает строку. Если дату распознать не удалось, возвращает `None`."""
+    """Приводит введённое пользователем время к формату 'dd.mm.yyyy HH:MM'. Возвращает строку. Если время распознать не удалось, возвращает `None`."""
     time = time.strip()    
     time = time.lower()
     time = parse(time, languages=["ru"], settings={
@@ -114,18 +112,18 @@ def ignore_case_collation(value1_: str, value2_: str):
         return 1
 
 async def scheduler():
-    """В фоновом режиме перебирает дедлайны. Отправляет сообщение в чат, для которого установлен дедлайн, если текущее время совпадает с временем дедлайна или отличается (в меньшую сторону) на час или на сутки. Выполняется в отдельном процессе."""
+    """В фоновом режиме отправляет сообщение в чат, для которого установлен дедлайн, если текущее время совпадает с временем дедлайна или отличается (в меньшую сторону) на час или на сутки."""
     while True:
         timeFormat = "%d.%m.%Y %H:%M"
         today = datetime.today()
         currentTime = today.strftime(timeFormat)
         hourAfterTime = (today + timedelta(seconds=3600)).strftime(timeFormat)
         dayAfterTime = (today + timedelta(days=1)).strftime(timeFormat)
-        deadlines = cur.execute("SELECT ROWID, chat, deadline, time, isGroup FROM Deadlines WHERE time=? OR time=? OR time=?;", (currentTime, hourAfterTime, dayAfterTime)).fetchall()
+        deadlines = cur.execute("SELECT ROWID, chat, deadline, time, isGroup FROM Deadlines WHERE time=? OR time=? OR time=?;", (currentTime, hourAfterTime, dayAfterTime)).fetchall() # Выбираем только те дедлайны, которые установлены на интересующее нас время
         for deadline in deadlines:
             if deadline[3] == currentTime:
                 await send(deadline[1], f"Дедлайн <<{deadline[2]}>>: время истекло")
-                cur.execute("DELETE FROM Deadlines WHERE ROWID=?;", (deadline[0],))
+                cur.execute("DELETE FROM Deadlines WHERE ROWID=?;", (deadline[0],))  # Удаляем истёкший дедлайн
                 database.commit()
             elif deadline[3] == hourAfterTime:
                 message = f"Дедлайн <<{deadline[2]}>>: время истекает через час ({deadline[3]})"
