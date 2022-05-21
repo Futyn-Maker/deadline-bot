@@ -1,11 +1,15 @@
 from vkbottle.bot import Bot, BotLabeler, Message
+from vkbottle import VKAPIError
 from config import token
 import sqlite3
 import re
 from datetime import datetime, timedelta
 from dateparser import parse
+from random import randint
+import asyncio
+from multiprocessing import Process
 
-def main():
+async def main():
     """Основная функция бота. В ней скрипт ждёт от пользователя или беседы сообщения и обрабатывает их."""
     @bot.on.message(text="/добавить <deadline> на <time>")
     @bot.on.private_message(text="добавить <deadline> на <time>")
@@ -85,7 +89,7 @@ def main():
 """
             await message.answer(answer)
 
-    bot.run_forever()
+    await asyncio.gather(bot.run_polling(), scheduler())
 
 def unifyTime(time: str):
     """Приводит введённое пользователем время к формату 'dd.mm.yyyy HH:MM'. Возвращает строку. Если дату распознать не удалось, возвращает `None`."""
@@ -109,6 +113,39 @@ def ignore_case_collation(value1_: str, value2_: str):
     else:
         return 1
 
+async def scheduler():
+    """В фоновом режиме перебирает дедлайны. Отправляет сообщение в чат, для которого установлен дедлайн, если текущее время совпадает с временем дедлайна или отличается (в меньшую сторону) на час или на сутки. Выполняется в отдельном процессе."""
+    while True:
+        timeFormat = "%d.%m.%Y %H:%M"
+        today = datetime.today()
+        currentTime = today.strftime(timeFormat)
+        hourAfterTime = (today + timedelta(seconds=3600)).strftime(timeFormat)
+        dayAfterTime = (today + timedelta(days=1)).strftime(timeFormat)
+        deadlines = cur.execute("SELECT ROWID, chat, deadline, time, isGroup FROM Deadlines WHERE time=? OR time=? OR time=?;", (currentTime, hourAfterTime, dayAfterTime)).fetchall()
+        for deadline in deadlines:
+            if deadline[3] == currentTime:
+                await send(deadline[1], f"Дедлайн <<{deadline[2]}>>: время истекло")
+                cur.execute("DELETE FROM Deadlines WHERE ROWID=?;", (deadline[0],))
+                database.commit()
+            elif deadline[3] == hourAfterTime:
+                message = f"Дедлайн <<{deadline[2]}>>: время истекает через час ({deadline[3]})"
+                if deadline[4]:
+                    message = "@all\n" + message # Если дедлайн установлен для беседы, упоминаем всех её участников
+                await send(deadline[1], message)
+            elif deadline[3] == dayAfterTime:
+                message = f"Дедлайн <<{deadline[2]}>>: время истекает через сутки ({deadline[3]})"
+                if deadline[4]:
+                    message = "@all\n" + message
+                await send(deadline[1], message)
+        await asyncio.sleep(60 - datetime.today().second) # До конца минуты новых дедлайнов точно не будет, можно не проверять
+
+async def send(id: int, message: str):
+    """Отправляет сообщение в чат. Принимает ID чата (int) и текст сообщения (str)."""
+    try:
+        await bot.api.messages.send(peer_id=id, random_id=randint(-2147483648, 2147483647), message=message)
+    except VKAPIError:
+        return
+
 bot = Bot(token)
 bot.labeler.vbml_ignore_case = True # Делает обработчики сообщений регистронезависимыми
 bot.labeler.load(BotLabeler())
@@ -124,4 +161,5 @@ cur.execute("""CREATE TABLE IF NOT EXISTS Deadlines(
 );""")
 database.commit()
 
-main()
+if __name__ == "__main__":
+    asyncio.run(main())
