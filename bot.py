@@ -14,6 +14,7 @@ async def main():
     async def setDeadline(message: Message, deadline: str, time: str):
         """Добавляет дедлайн для чата.
 Кроме собственно сообщения принимает параметры `deadline` (str) - название дедлайна, а также `time` (str) - дату и время."""
+        deadline = deadline.replace("дедлайн ", "") # Убирает слово "дедлайн", если пользователь ввёл его
         time = unifyTime(time)
         if time == None:
             await message.answer("Ошибка: неправильный формат даты и времени")
@@ -33,6 +34,7 @@ async def main():
         """Удаляет дедлайн для чата.
 Кроме собственно сообщения принимает параметр `deadline` (str) - название дедлайна.
 Если для чата задано несколько дедлайнов с одинаковым названием, будет удалён тот, который добавлен раньше."""
+        deadline = deadline.replace("дедлайн ", "")
         deadline = cur.execute("SELECT ROWID, deadline FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
         if deadline == None:
             pronoun = "тебя" if message.from_id == message.peer_id else "вас" # Делаем разные местоимения в зависимости от типа чата
@@ -49,6 +51,7 @@ async def main():
         """Изменяет уже существующий дедлайн.
 Кроме собственно сообщения принимает параметры `deadline` (str) - название изменяемого дедлайна, а также `time` (str) - новое время дедлайна.
 Если для чата задано несколько дедлайнов с одинаковым названием, будет изменён тот, который добавлен раньше."""
+        deadline = deadline.replace("дедлайн ", "")
         time = unifyTime(time)
         if time == None:
             await message.answer("Ошибка: неправильный формат даты и времени")
@@ -122,16 +125,16 @@ async def scheduler():
         deadlines = cur.execute("SELECT ROWID, chat, deadline, time, isGroup FROM Deadlines WHERE time=? OR time=? OR time=?;", (currentTime, hourAfterTime, dayAfterTime)).fetchall() # Выбираем только те дедлайны, которые установлены на интересующее нас время
         for deadline in deadlines:
             if deadline[3] == currentTime:
-                await send(deadline[1], f"Дедлайн <<{deadline[2]}>>: время истекло")
+                await send(deadline[1], f"{deadline[2]}: время истекло")
                 cur.execute("DELETE FROM Deadlines WHERE ROWID=?;", (deadline[0],))  # Удаляем истёкший дедлайн
                 database.commit()
             elif deadline[3] == hourAfterTime:
-                message = f"Дедлайн <<{deadline[2]}>>: время истекает через час ({deadline[3]})"
+                message = f"{deadline[2]}: остался 1 час до дедлайна ({deadline[3]})"
                 if deadline[4]:
                     message = "@all\n" + message # Если дедлайн установлен для беседы, упоминаем всех её участников
                 await send(deadline[1], message)
             elif deadline[3] == dayAfterTime:
-                message = f"Дедлайн <<{deadline[2]}>>: время истекает через сутки ({deadline[3]})"
+                message = f"{deadline[2]}: остался 1 день до дедлайна ({deadline[3]})"
                 if deadline[4]:
                     message = "@all\n" + message
                 await send(deadline[1], message)
@@ -140,7 +143,7 @@ async def scheduler():
 async def send(id: int, message: str):
     """Отправляет сообщение в чат. Принимает ID чата (int) и текст сообщения (str)."""
     try:
-        await bot.api.messages.send(peer_id=id, random_id=randint(-2147483648, 2147483647), message=message)
+        await bot.api.messages.send(peer_id=id, random_id=randint(-2147483648, 2147483647), message=message, disable_mentions=0)
     except VKAPIError:
         return
 
