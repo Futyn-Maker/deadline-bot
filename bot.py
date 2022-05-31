@@ -89,6 +89,19 @@ async def main():
 
 """
             await message.answer(answer)
+    @bot.on.message(text=["/когда <deadline>?", "/когда <deadline>"])
+    @bot.on.private_message(text=["когда <deadline>?", "когда <deadline>"])
+    async def whenDeadline(message: Message, deadline: str):
+        """Сообщает время конкретного дедлайна.
+Кроме собственно сообщения принимает параметр `deadline` (str) - название дедлайна.
+Если для чата задано несколько дедлайнов с одинаковым названием, будет отправлена информация по тому, который задан раньше."""
+        deadline = deadline.replace("дедлайн ", "")
+        deadline = cur.execute("SELECT deadline, time FROM Deadlines WHERE chat=? AND deadline=? COLLATE NOCASE;", (message.peer_id, deadline)).fetchone()
+        if deadline == None:
+            pronoun = "тебя" if message.from_id == message.peer_id else "вас"
+            await message.answer(f"У {pronoun} нет такого дедлайна")
+        else:
+            await message.answer(f"{deadline[0]}: {deadline[1]}")
 
     await asyncio.gather(bot.run_polling(), scheduler()) # Запускаем одновременно и бота, и планировщик
 
