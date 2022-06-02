@@ -9,8 +9,8 @@ from config import token
 
 async def main():
     """Основная функция бота. В ней скрипт ждёт от пользователя или беседы сообщения и обрабатывает их."""
-    @bot.on.message(text="/добавить <deadline> на <time>")
-    @bot.on.private_message(text="добавить <deadline> на <time>")
+    @bot.on.message(text=["/добавить <deadline> на <time>", "/добавь <deadline> на <time>", "дед, добавь <deadline> на <time>"])
+    @bot.on.private_message(text=["добавить <deadline> на <time>", "добавь <deadline> на <time>"])
     async def setDeadline(message: Message, deadline: str, time: str):
         """Добавляет дедлайн для чата.
 Кроме собственно сообщения принимает параметры `deadline` (str) - название дедлайна, а также `time` (str) - дату и время."""
@@ -26,10 +26,10 @@ async def main():
             row["isGroup"] = True
         cur.execute("INSERT INTO Deadlines VALUES(:chat, :deadline, :time, :isGroup);", row)
         database.commit()
-        await message.answer(f"Дедлайн <<{deadline}>> установлен на {time}")
+        await message.answer(f"Готово, добавил дедлайн <<{deadline}>> на {time}")
 
-    @bot.on.message(text="/удалить <deadline>")
-    @bot.on.private_message(text="удалить <deadline>")
+    @bot.on.message(text=["/удалить <deadline>", "/удали <deadline>", "дед, удали <deadline>"])
+    @bot.on.private_message(text=["удалить <deadline>", "удали <deadline>"])
     async def removeDeadline(message: Message, deadline: str):
         """Удаляет дедлайн для чата.
 Кроме собственно сообщения принимает параметр `deadline` (str) - название дедлайна.
@@ -43,10 +43,10 @@ async def main():
             cur.execute("DELETE FROM Deadlines WHERE ROWID=?;", (deadline[0],))
             database.commit()
             # Мы не используем `DELETE FROM Deadlines WHERE` сразу, так как у пользователя может быть несколько дедлайнов с одинаковым названием.
-            await message.answer(f"Дедлайн <<{deadline[1]}>> удалён")
+            await message.answer(f"Готово, удалил дедлайн <<{deadline[1]}>>")
 
-    @bot.on.message(text="/изменить <deadline> на <time>")
-    @bot.on.private_message(text="изменить <deadline> на <time>")
+    @bot.on.message(text=["/изменить <deadline> на <time>", "/измени <deadline> на <time>", "дед, измени <deadline> на <time>"])
+    @bot.on.private_message(text=["изменить <deadline> на <time>", "измени <deadline> на <time>"])
     async def changeDeadline(message: Message, deadline: str, time: str):
         """Изменяет уже существующий дедлайн.
 Кроме собственно сообщения принимает параметры `deadline` (str) - название изменяемого дедлайна, а также `time` (str) - новое время дедлайна.
@@ -63,18 +63,18 @@ async def main():
         else:
             cur.execute("UPDATE Deadlines SET time=? WHERE ROWID=?;", (time, deadline[0]))
             database.commit()
-            await message.answer(f"Дедлайн <<{deadline[1]}>> изменён на {time}")
+            await message.answer(f"Готово, изменил дедлайн <<{deadline[1]}>> на {time}")
 
-    @bot.on.message(text="/сбросить")
-    @bot.on.private_message(text="сбросить")
+    @bot.on.message(text=["/сбросить", "/сбрось", "дед, сбрось"])
+    @bot.on.private_message(text=["сбросить", "сбрось"])
     async def clearDeadlines(message: Message):
         """Удаляет все дедлайны для данного чата."""
         cur.execute("DELETE FROM Deadlines WHERE chat=?;", (message.peer_id,))
         database.commit()
-        await message.answer("Все дедлайны удалены")
+        await message.answer("Готово, удалил все дедлайны")
 
-    @bot.on.message(text="/дедлайны")
-    @bot.on.private_message(text="дедлайны")
+    @bot.on.message(text=["/дедлайны", "/скажи дедлайны", "/расскажи про дедлайны", "/что по дедлайнам", "/что по дедлайнам?", "дед, скажи дедлайны", "дед, расскажи про дедлайны", "дед, что по дедлайнам", "дед, что по дедлайнам?"])
+    @bot.on.private_message(text=["дедлайны", "скажи дедлайны", "расскажи про дедлайны", "что по дедлайнам", "что по дедлайнам?"])
     async def sendDeadlines(message: Message):
         """Отправляет список текущих дедлайнов для данного чата."""
         deadlines = cur.execute("SELECT deadline, time FROM Deadlines WHERE chat=?;", (message.peer_id,)).fetchall()
@@ -89,7 +89,7 @@ async def main():
 
 """
             await message.answer(answer)
-    @bot.on.message(text=["/когда <deadline>?", "/когда <deadline>"])
+    @bot.on.message(text=["/когда <deadline>?", "/когда <deadline>", "дед, когда <deadline>?", "дед, когда <deadline>"])
     @bot.on.private_message(text=["когда <deadline>?", "когда <deadline>"])
     async def whenDeadline(message: Message, deadline: str):
         """Сообщает время конкретного дедлайна.
