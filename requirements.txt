@@ -1,2 +1,3 @@
-vkbottle
 dateparser
+loguru
+vkbottle
